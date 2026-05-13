@@ -1,0 +1,133 @@
+.publicar-layout {
+  min-height: 100vh;
+  background-color: #f1f5f9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem 5%;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.publicar-card {
+  background: white;
+  width: 100%;
+  max-width: 600px;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+}
+
+.form-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.form-header h2 {
+  color: #1e293b;
+  margin: 0 0 5px 0;
+}
+
+.form-header p {
+  color: #64748b;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.publicar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.form-group input[type="text"],
+.form-group select,
+.form-group textarea {
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background-color: white;
+}
+
+.file-input {
+  border: 1px dashed #cbd5e1;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.btn-cancelar {
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-cancelar:hover {
+  background: #f1f5f9;
+}
+
+.btn-submit {
+  background: #3b82f6;
+  border: none;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.btn-submit:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+}

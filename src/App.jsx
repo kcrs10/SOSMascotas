@@ -7,19 +7,20 @@ import './App.css'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Publicar from './pages/Publicar'
 
 function App() {
   const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true) // <- 1. Añadimos el estado de carga
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Verificamos sesión inicial
+    // Al cargar, verificamos si ya hay una llave de Google guardada
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      setLoading(false) // Ya sabemos si tiene llave o no
+      setLoading(false)
     })
 
-    // Escuchamos cambios (login/logout)
+    // Escuchamos activamente cuando el usuario entra o sale
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
       setLoading(false)
@@ -28,11 +29,11 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // 2. Pantalla de espera de seguridad mientras Supabase lee el token
+  // Pantalla de espera mientras comprobamos la seguridad
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc', color: '#7c4a32' }}>
-        <h2>Abriendo bóveda segura... 🐾</h2>
+        <h2>Verificando credenciales de rescate... 🐾</h2>
       </div>
     )
   }
@@ -40,17 +41,16 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* 3. Landing Inteligente: Si YA tiene sesión, lo catapulta al Dashboard */}
-        <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" />} />
+        {/* Rutas Públicas: Si ya estás logueado, te enviamos directo al panel */}
+        <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" replace />} />
+        <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" replace />} />
 
-        {/* Login: Si ya estás logueado, te manda al dashboard */}
-        <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" />} />
+        {/* 🔒 RUTAS PROTEGIDAS: Solo accesibles si 'session' existe (Inició con Google) */}
+        <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" replace />} />
+        <Route path="/publicar" element={session ? <Publicar session={session} /> : <Navigate to="/login" replace />} />
 
-        {/* Dashboard Real: Protegido por sesión */}
-        <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" />} />
-
-        {/* Fallback: Si escriben cualquier cosa, vuelve a la raíz */}
-        <Route path="*" element={<Navigate to="/" />} />
+        {/* Fallback para URLs incorrectas */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   )
