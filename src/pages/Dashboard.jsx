@@ -1,95 +1,342 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import './Dashboard.css'
 
-function Dashboard({ session }) {
+const ESTADO_LABELS = {
+  perdido: 'Perdido',
+  encontrado: 'Encontrado',
+  reunido: 'Reunido 🎉',
+}
+
+const ESTADO_COLORS = {
+  perdido: '#C94B1A',
+  encontrado: '#2D7D46',
+  reunido: '#8B6E54',
+}
+
+export default function Dashboard({ session }) {
   const navigate = useNavigate()
   const [mascotas, setMascotas] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState(null)
 
-  // Función para obtener los datos de la tabla de Supabase
-  const fetchMascotas = async () => {
-    try {
-      setLoading(true)
-      // Asegúrate de que el nombre de la tabla coincida con la que creaste en la Fase 1
-      const { data, error } = await supabase
-        .from('publicaciones_mascotas') 
-        .select('*')
-        .order('created_at', { ascending: false })
+  const [form, setForm] = useState({
+    nombre: '',
+    especie: 'perro',
+    raza: '',
+    descripcion: '',
+    zona: '',
+    contacto: '',
+    imagen: null,
+  })
+  const [preview, setPreview] = useState(null)
 
-      if (error) throw error
-      if (data) setMascotas(data)
-    } catch (error) {
-      console.error('Error al cargar mascotas:', error.message)
-    } finally {
-      setLoading(false)
-    }
+  // Cargar mascotas desde Supabase
+  const cargarMascotas = async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('mascotas')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (!error) setMascotas(data || [])
+    setLoading(false)
   }
 
-  // Ejecutar la búsqueda al entrar al panel
   useEffect(() => {
-    fetchMascotas()
+    cargarMascotas()
   }, [])
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut()
-    navigate('/login')
+    navigate('/')
+  }
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setForm(f => ({ ...f, imagen: file }))
+    setPreview(URL.createObjectURL(file))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      let imagen_url = null
+
+      // 1. Subir imagen al bucket si hay una
+      if (form.imagen) {
+        const ext = form.imagen.name.split('.').pop()
+        const fileName = `${Date.now()}-${session.user.id}.${ext}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('mascotas-fotos')
+          .upload(fileName, form.imagen, { upsert: false })
+
+        if (uploadError) throw uploadError
+
+        const { data: urlData } = supabase.storage
+          .from('mascotas-fotos')
+          .getPublicUrl(fileName)
+
+        imagen_url = urlData.publicUrl
+      }
+
+      // 2. Insertar registro en la tabla
+      const { error: insertError } = await supabase
+        .from('mascotas')
+        .insert([{
+          nombre: form.nombre,
+          especie: form.especie,
+          raza: form.raza || null,
+          descripcion: form.descripcion,
+          zona: form.zona,
+          contacto: form.contacto,
+          imagen_url,
+          estado: 'perdido',
+          user_id: session.user.id,
+        }])
+
+      if (insertError) throw insertError
+
+      // Limpiar y recargar
+      setForm({ nombre: '', especie: 'perro', raza: '', descripcion: '', zona: '', contacto: '', imagen: null })
+      setPreview(null)
+      setShowForm(false)
+      await cargarMascotas()
+
+    } catch (err) {
+      setError(err.message || 'Error al publicar. Intenta de nuevo.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const marcarEncontrado = async (id, estadoActual) => {
+    const nuevoEstado = estadoActual === 'perdido' ? 'encontrado' : 'reunido'
+    await supabase.from('mascotas').update({ estado: nuevoEstado }).eq('id', id)
+    await cargarMascotas()
   }
 
   return (
-    <div className="dashboard-layout">
-      {/* Barra de Navegación Superior */}
-      <nav className="dashboard-nav">
-        <div className="nav-brand">🐾 SOS Mascotas Vicuña</div>
-        <div className="nav-actions">
-          <span className="user-email">{session.user.email}</span>
-          <button className="btn-logout" onClick={cerrarSesion}>Salir</button>
-        </div>
-      </nav>
-
-      <main className="dashboard-content">
-        <div className="dashboard-header">
-          <div>
-            <h2>Mascotas Reportadas</h2>
-            <p>Red de búsqueda activa en la comuna.</p>
+    <div className="db">
+      {/* Header */}
+      <header className="db-header">
+        <div className="db-logo">
+          <div className="db-paw">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <ellipse cx="7" cy="7" rx="2.2" ry="3" fill="#FDF8F2" />
+              <ellipse cx="17" cy="7" rx="2.2" ry="3" fill="#FDF8F2" />
+              <ellipse cx="4.5" cy="12" rx="1.8" ry="2.5" fill="#FDF8F2" />
+              <ellipse cx="19.5" cy="12" rx="1.8" ry="2.5" fill="#FDF8F2" />
+              <path d="M12 10c-3.5 0-6 2-6 5.5 0 2.5 2 4.5 6 4.5s6-2 6-4.5c0-3.5-2.5-5.5-6-5.5z" fill="#FDF8F2" />
+            </svg>
           </div>
-          <button className="btn-primary" onClick={() => navigate('/publicar')}>
-            + Reportar Mascota
+          <span className="db-brand">SOS<span> Mascotas</span></span>
+        </div>
+
+        <div className="db-user">
+          {session?.user?.user_metadata?.avatar_url && (
+            <img
+              src={session.user.user_metadata.avatar_url}
+              alt="avatar"
+              className="db-avatar"
+            />
+          )}
+          <span className="db-username">
+            {session?.user?.user_metadata?.full_name?.split(' ')[0] || 'Usuario'}
+          </span>
+          <button className="db-logout" onClick={cerrarSesion}>
+            Salir
+          </button>
+        </div>
+      </header>
+
+      {/* Main */}
+      <main className="db-main">
+        <div className="db-top-bar">
+          <div>
+            <h1 className="db-title">Mascotas perdidas</h1>
+            <p className="db-subtitle">Valle del Elqui · Vicuña y alrededores</p>
+          </div>
+          <button className="db-btn-new" onClick={() => setShowForm(true)}>
+            + Reportar mascota
           </button>
         </div>
 
-        {/* Zona del Feed / Resultados */}
+        {/* Lista de mascotas */}
         {loading ? (
-          <div className="loading-state">Cargando base de datos segura...</div>
+          <div className="db-empty">Cargando reportes...</div>
         ) : mascotas.length === 0 ? (
-          <div className="empty-state">
-            <span className="empty-icon">📭</span>
-            <h3>No hay reportes activos</h3>
-            <p>Afortunadamente, no hay mascotas perdidas en este momento. Si necesitas ayuda, crea un nuevo reporte.</p>
+          <div className="db-empty">
+            <span className="db-empty-icon">🐾</span>
+            <p>No hay mascotas reportadas aún.</p>
+            <p>¡Sé el primero en ayudar a la comunidad!</p>
           </div>
         ) : (
-          <div className="mascotas-grid">
-            {mascotas.map((mascota) => (
-              <div key={mascota.id} className="mascota-card">
-                {/* Si no hay foto, mostramos un recuadro gris temporal */}
-                <div 
-                  className="mascota-img" 
-                  style={{ backgroundImage: `url(${mascota.foto_url || 'https://via.placeholder.com/300?text=Sin+Foto'})` }}
-                ></div>
-                <div className="mascota-info">
-                  <h3>{mascota.nombre || 'Desconocido'}</h3>
-                  <span className="badge-especie">{mascota.especie}</span>
-                  <p className="ubicacion">📍 {mascota.ubicacion}</p>
-                  <p className="descripcion">{mascota.descripcion}</p>
+          <div className="db-grid">
+            {mascotas.map(m => (
+              <div key={m.id} className="db-card">
+                <div className="db-card-img">
+                  {m.imagen_url
+                    ? <img src={m.imagen_url} alt={m.nombre} />
+                    : <div className="db-card-no-img">🐾</div>
+                  }
+                  <span
+                    className="db-card-badge"
+                    style={{ background: ESTADO_COLORS[m.estado] }}
+                  >
+                    {ESTADO_LABELS[m.estado]}
+                  </span>
+                </div>
+                <div className="db-card-body">
+                  <h3 className="db-card-name">{m.nombre}</h3>
+                  <p className="db-card-meta">
+                    {m.especie}{m.raza ? ` · ${m.raza}` : ''} · {m.zona}
+                  </p>
+                  <p className="db-card-desc">{m.descripcion}</p>
+                  <div className="db-card-footer">
+                    <span className="db-card-contacto">📞 {m.contacto}</span>
+                    {m.estado !== 'reunido' && m.user_id === session?.user?.id && (
+                      <button
+                        className="db-card-btn"
+                        onClick={() => marcarEncontrado(m.id, m.estado)}
+                      >
+                        {m.estado === 'perdido' ? '¡Lo encontré!' : 'Marcar reunido'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </main>
+
+      {/* Modal: nuevo reporte */}
+      {showForm && (
+        <div className="db-overlay" onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+          <div className="db-modal">
+            <div className="db-modal-header">
+              <h2>Reportar mascota perdida</h2>
+              <button className="db-modal-close" onClick={() => setShowForm(false)}>✕</button>
+            </div>
+
+            <form className="db-form" onSubmit={handleSubmit}>
+              {/* Foto */}
+              <div className="db-field">
+                <label>Foto de la mascota</label>
+                <div className="db-upload-area" onClick={() => document.getElementById('img-input').click()}>
+                  {preview
+                    ? <img src={preview} alt="preview" className="db-upload-preview" />
+                    : (
+                      <div className="db-upload-placeholder">
+                        <span>📸</span>
+                        <span>Toca para subir foto</span>
+                      </div>
+                    )
+                  }
+                </div>
+                <input
+                  id="img-input"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleImageChange}
+                />
+              </div>
+
+              {/* Nombre */}
+              <div className="db-field">
+                <label>Nombre <span className="req">*</span></label>
+                <input
+                  type="text"
+                  placeholder="Ej: Firulais"
+                  value={form.nombre}
+                  onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* Especie */}
+              <div className="db-field">
+                <label>Especie <span className="req">*</span></label>
+                <select
+                  value={form.especie}
+                  onChange={e => setForm(f => ({ ...f, especie: e.target.value }))}
+                >
+                  <option value="perro">Perro</option>
+                  <option value="gato">Gato</option>
+                  <option value="otro">Otro</option>
+                </select>
+              </div>
+
+              {/* Raza */}
+              <div className="db-field">
+                <label>Raza <span className="optional">(opcional)</span></label>
+                <input
+                  type="text"
+                  placeholder="Ej: Labrador"
+                  value={form.raza}
+                  onChange={e => setForm(f => ({ ...f, raza: e.target.value }))}
+                />
+              </div>
+
+              {/* Descripción */}
+              <div className="db-field">
+                <label>Descripción <span className="req">*</span></label>
+                <textarea
+                  placeholder="Color, tamaño, señas particulares, dónde fue visto por última vez..."
+                  value={form.descripcion}
+                  onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                  required
+                  rows={3}
+                />
+              </div>
+
+              {/* Zona */}
+              <div className="db-field">
+                <label>Zona / Sector <span className="req">*</span></label>
+                <input
+                  type="text"
+                  placeholder="Ej: Centro Vicuña, Población Los Pinos"
+                  value={form.zona}
+                  onChange={e => setForm(f => ({ ...f, zona: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {/* Contacto */}
+              <div className="db-field">
+                <label>Teléfono de contacto <span className="req">*</span></label>
+                <input
+                  type="tel"
+                  placeholder="Ej: +56 9 1234 5678"
+                  value={form.contacto}
+                  onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))}
+                  required
+                />
+              </div>
+
+              {error && <p className="db-error">{error}</p>}
+
+              <button
+                type="submit"
+                className="db-submit"
+                disabled={submitting}
+              >
+                {submitting ? 'Publicando...' : 'Publicar reporte'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
-export default Dashboard

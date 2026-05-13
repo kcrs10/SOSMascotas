@@ -1,67 +1,70 @@
-import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './supabaseClient'
-import './App.css'
-
-// Import de Páginas
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
-import Publicar from './pages/Publicar'
 
-function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
+function ProtectedRoute({ session, children }) {
+  if (session === undefined) {
+    // Todavía cargando sesión
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#FDF8F2',
+        fontFamily: 'DM Sans, sans-serif',
+        color: '#8B6E54',
+        fontSize: '14px'
+      }}>
+        Cargando...
+      </div>
+    )
+  }
+  if (!session) return <Navigate to="/login" replace />
+  return children
+}
+
+export default function App() {
+  const [session, setSession] = useState(undefined)
 
   useEffect(() => {
-    // 1. Detectamos si la URL trae el candado de Google (#access_token)
-    const isAuthRedirect = window.location.hash.includes('access_token');
-
-    // 2. Revisamos si ya había una sesión guardada en memoria local
+    // Obtener sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      // CRÍTICO: Solo quitamos la carga si NO venimos rebotando de Google
-      if (!isAuthRedirect) {
-        setLoading(false)
-      }
+      setSession(session ?? null)
     })
 
-    // 3. El oyente que atrapa el token en el aire cuando Google nos redirige
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSession(session)
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        setLoading(false) // Ahora sí, token guardado, abrimos la puerta
-      }
+    // Escuchar cambios de auth (login / logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session ?? null)
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Pantalla de espera obligatoria
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc', color: '#7c4a32' }}>
-        <h2>Verificando credenciales de rescate... 🐾</h2>
-      </div>
-    )
-  }
-
   return (
-    <Router>
-      <Routes>
-        {/* Rutas Públicas */}
-        <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" replace />} />
-        <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" replace />} />
-
-        {/* Rutas Privadas Protegidas */}
-        <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" replace />} />
-        <Route path="/publicar" element={session ? <Publicar session={session} /> : <Navigate to="/login" replace />} />
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route
+        path="/login"
+        element={
+          session
+            ? <Navigate to="/dashboard" replace />
+            : <Login />
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute session={session}>
+            <Dashboard session={session} />
+          </ProtectedRoute>
+        }
+      />
+      {/* Catch-all */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
-
-export default App
