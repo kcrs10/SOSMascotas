@@ -14,22 +14,30 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Al cargar, verificamos si ya hay una llave de Google guardada
+    // 1. Detectamos si la URL trae el candado de Google (#access_token)
+    const isAuthRedirect = window.location.hash.includes('access_token');
+
+    // 2. Revisamos si ya había una sesión guardada en memoria local
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      setLoading(false)
+      // CRÍTICO: Solo quitamos la carga si NO venimos rebotando de Google
+      if (!isAuthRedirect) {
+        setLoading(false)
+      }
     })
 
-    // Escuchamos activamente cuando el usuario entra o sale
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 3. El oyente que atrapa el token en el aire cuando Google nos redirige
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
-      setLoading(false)
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        setLoading(false) // Ahora sí, token guardado, abrimos la puerta
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  // Pantalla de espera mientras comprobamos la seguridad
+  // Pantalla de espera obligatoria
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f8fafc', color: '#7c4a32' }}>
@@ -41,15 +49,15 @@ function App() {
   return (
     <Router>
       <Routes>
-        {/* Rutas Públicas: Si ya estás logueado, te enviamos directo al panel */}
+        {/* Rutas Públicas */}
         <Route path="/" element={!session ? <Landing /> : <Navigate to="/dashboard" replace />} />
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/dashboard" replace />} />
 
-        {/* 🔒 RUTAS PROTEGIDAS: Solo accesibles si 'session' existe (Inició con Google) */}
+        {/* Rutas Privadas Protegidas */}
         <Route path="/dashboard" element={session ? <Dashboard session={session} /> : <Navigate to="/login" replace />} />
         <Route path="/publicar" element={session ? <Publicar session={session} /> : <Navigate to="/login" replace />} />
 
-        {/* Fallback para URLs incorrectas */}
+        {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
