@@ -20,6 +20,35 @@ const Loader = () => (
   </div>
 )
 
+// Página dedicada para recibir el callback de Google
+function AuthCallback() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    // getSession detecta el token del hash automáticamente
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate('/dashboard', { replace: true })
+      } else {
+        // Esperar el evento por si el token todavía no procesó
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (session) {
+            subscription.unsubscribe()
+            navigate('/dashboard', { replace: true })
+          }
+        })
+
+        // Timeout de seguridad: 6 segundos
+        setTimeout(() => {
+          navigate('/login', { replace: true })
+        }, 6000)
+      }
+    })
+  }, [navigate])
+
+  return <Loader />
+}
+
 function ProtectedRoute({ session, children }) {
   if (session === undefined) return <Loader />
   if (!session) return <Navigate to="/login" replace />
@@ -31,21 +60,14 @@ export default function App() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Detectar el token de OAuth en el hash de la URL (#access_token=...)
-    // Supabase lo procesa automáticamente con onAuthStateChange
+    // Cargar sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session ?? null)
     })
 
+    // Escuchar cambios — solo manejar SIGNED_OUT aquí
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session ?? null)
-
-      // Cuando Google completa el login, redirigir al dashboard
-      if (event === 'SIGNED_IN' && session) {
-        navigate('/dashboard', { replace: true })
-      }
-
-      // Cuando cierra sesión, ir al inicio
       if (event === 'SIGNED_OUT') {
         navigate('/', { replace: true })
       }
@@ -54,7 +76,6 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [navigate])
 
-  // Mientras carga la sesión inicial, mostrar loader
   if (session === undefined) return <Loader />
 
   return (
@@ -63,11 +84,7 @@ export default function App() {
 
       <Route
         path="/login"
-        element={
-          session
-            ? <Navigate to="/dashboard" replace />
-            : <Login />
-        }
+        element={session ? <Navigate to="/dashboard" replace /> : <Login />}
       />
 
       <Route
@@ -79,13 +96,9 @@ export default function App() {
         }
       />
 
-      {/* Ruta de callback OAuth — Supabase aterriza aquí con el token */}
-      <Route
-        path="/auth/callback"
-        element={<Loader />}
-      />
+      {/* Callback de Google — procesa el token y redirige */}
+      <Route path="/auth/callback" element={<AuthCallback />} />
 
-      {/* Catch-all: solo redirige si no hay sesión cargando */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
