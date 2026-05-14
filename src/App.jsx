@@ -26,10 +26,27 @@ const Loader = () => (
 // Zona de cuarentena para recibir el callback de Google
 function AuthCallback() {
   const navigate = useNavigate()
+  const [mensaje, setMensaje] = useState('Analizando llaves de Google... 🐾')
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // 1. Verificar si Cloudflare nos robó el token
+    if (!window.location.hash.includes('access_token')) {
+      setMensaje('❌ ERROR: El token de Google desapareció de la URL. Cloudflare lo bloqueó.')
+      return
+    }
+
+    // 2. Verificar si olvidaste las variables de entorno en Cloudflare
+    if (!import.meta.env.VITE_SUPABASE_URL) {
+      setMensaje('❌ ERROR: Faltan las variables de entorno (.env) en Cloudflare.')
+      return
+    }
+
+    // 3. Procesar sesión
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) setMensaje(`❌ Error de Supabase: ${error.message}`)
+      
       if (session) {
+        setMensaje('✅ ¡Llave aceptada! Entrando...')
         navigate('/dashboard', { replace: true })
       } else {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -38,15 +55,23 @@ function AuthCallback() {
             navigate('/dashboard', { replace: true })
           }
         })
-        // Timeout de seguridad: 6 segundos
+
+        // Timeout
         setTimeout(() => {
-          navigate('/login', { replace: true })
+          setMensaje('❌ Timeout: Supabase no reconoció las llaves de Google.')
         }, 6000)
       }
     })
   }, [navigate])
 
-  return <Loader />
+  return (
+    <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif', backgroundColor: '#FDF8F2', height: '100vh' }}>
+      <h2 style={{ color: '#8B6E54' }}>{mensaje}</h2>
+      <p style={{ color: 'gray', marginTop: '20px', fontSize: '12px', wordBreak: 'break-all' }}>
+        <strong>URL actual detectada:</strong> {window.location.href}
+      </p>
+    </div>
+  )
 }
 
 // Guardián de rutas protegidas
