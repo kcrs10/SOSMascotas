@@ -9,8 +9,8 @@ const iniciarSesion = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // ATENCIÓN: Agregamos una barra (/) al final para evitar que Cloudflare corte el token
-        redirectTo: 'https://sosmascotas.pages.dev/auth/callback/'
+        // EXACTAMENTE ASÍ: Sin barra al final
+        redirectTo: `${window.location.origin}/auth/callback`
       }
     })
     if (error) console.error('Error en login:', error.message)
