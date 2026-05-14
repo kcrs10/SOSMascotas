@@ -24,51 +24,62 @@ const Loader = () => (
 )
 
 // Zona de cuarentena para recibir el callback de Google
+// Zona de cuarentena: Extracción Manual de Tokens
 function AuthCallback() {
   const navigate = useNavigate()
   const [mensaje, setMensaje] = useState('Analizando llaves de Google... 🐾')
 
   useEffect(() => {
-    // 1. Verificar si Cloudflare nos robó el token
-    if (!window.location.hash.includes('access_token')) {
-      setMensaje('❌ ERROR: El token de Google desapareció de la URL. Cloudflare lo bloqueó.')
-      return
-    }
-
-    // 2. Verificar si olvidaste las variables de entorno en Cloudflare
-    if (!import.meta.env.VITE_SUPABASE_URL) {
-      setMensaje('❌ ERROR: Faltan las variables de entorno (.env) en Cloudflare.')
-      return
-    }
-
-    // 3. Procesar sesión
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) setMensaje(`❌ Error de Supabase: ${error.message}`)
+    const forzarInicioSesion = async () => {
+      const hash = window.location.hash;
       
-      if (session) {
-        setMensaje('✅ ¡Llave aceptada! Entrando...')
-        navigate('/dashboard', { replace: true })
-      } else {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (session) {
-            subscription.unsubscribe()
-            navigate('/dashboard', { replace: true })
-          }
-        })
-
-        // Timeout
-        setTimeout(() => {
-          setMensaje('❌ Timeout: Supabase no reconoció las llaves de Google.')
-        }, 6000)
+      if (!hash.includes('access_token')) {
+        setMensaje('❌ ERROR: El token no llegó a la URL.');
+        return;
       }
-    })
-  }, [navigate])
+
+      setMensaje('✅ Llaves detectadas en la URL. Forzando la cerradura...');
+
+      try {
+        // 1. Extraemos los parámetros de la URL nosotros mismos
+        const parametros = new URLSearchParams(hash.substring(1)); // quitamos el '#'
+        const accessToken = parametros.get('access_token');
+        const refreshToken = parametros.get('refresh_token');
+
+        if (accessToken && refreshToken) {
+          // 2. Le inyectamos la sesión a Supabase a la fuerza
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (error) {
+            setMensaje(`❌ Error al forzar sesión: ${error.message}`);
+          } else {
+            setMensaje('✅ ¡Bóveda abierta! Entrando al Dashboard...');
+            
+            // 3. Limpiamos la URL por seguridad para no dejar los tokens visibles
+            window.location.hash = '';
+            
+            // 4. Catapultamos al usuario al panel
+            navigate('/dashboard', { replace: true });
+          }
+        } else {
+          setMensaje('❌ La URL no contenía ambos tokens necesarios.');
+        }
+      } catch (err) {
+        setMensaje(`❌ Error interno de React: ${err.message}`);
+      }
+    };
+
+    forzarInicioSesion();
+  }, [navigate]);
 
   return (
     <div style={{ padding: '40px', textAlign: 'center', fontFamily: 'sans-serif', backgroundColor: '#FDF8F2', height: '100vh' }}>
       <h2 style={{ color: '#8B6E54' }}>{mensaje}</h2>
       <p style={{ color: 'gray', marginTop: '20px', fontSize: '12px', wordBreak: 'break-all' }}>
-        <strong>URL actual detectada:</strong> {window.location.href}
+        Extracción manual activada.
       </p>
     </div>
   )
