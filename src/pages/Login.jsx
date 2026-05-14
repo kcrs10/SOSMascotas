@@ -9,8 +9,8 @@ const iniciarSesion = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Ahora sí, directo al panel de control 🚀
-        redirectTo: `${window.location.origin}/dashboard`
+        // Apuntamos directamente a tu componente AuthCallback
+        redirectTo: `${window.location.origin}/auth/callback`
       }
     })
     if (error) console.error('Error en login:', error.message)

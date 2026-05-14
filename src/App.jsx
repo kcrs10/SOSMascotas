@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from './supabaseClient'
+
+// Páginas
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Publicar from './pages/Publicar'
 
 const Loader = () => (
   <div style={{
@@ -16,28 +19,25 @@ const Loader = () => (
     color: '#8B6E54',
     fontSize: '14px'
   }}>
-    Cargando...
+    Verificando credenciales seguras... 🐾
   </div>
 )
 
-// Página dedicada para recibir el callback de Google
+// Zona de cuarentena para recibir el callback de Google
 function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // getSession detecta el token del hash automáticamente
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         navigate('/dashboard', { replace: true })
       } else {
-        // Esperar el evento por si el token todavía no procesó
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           if (session) {
             subscription.unsubscribe()
             navigate('/dashboard', { replace: true })
           }
         })
-
         // Timeout de seguridad: 6 segundos
         setTimeout(() => {
           navigate('/login', { replace: true })
@@ -49,6 +49,7 @@ function AuthCallback() {
   return <Loader />
 }
 
+// Guardián de rutas protegidas
 function ProtectedRoute({ session, children }) {
   if (session === undefined) return <Loader />
   if (!session) return <Navigate to="/login" replace />
@@ -60,12 +61,10 @@ export default function App() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // Cargar sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session ?? null)
     })
 
-    // Escuchar cambios — solo manejar SIGNED_OUT aquí
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session ?? null)
       if (event === 'SIGNED_OUT') {
@@ -95,8 +94,17 @@ export default function App() {
           </ProtectedRoute>
         }
       />
+      
+      <Route
+        path="/publicar"
+        element={
+          <ProtectedRoute session={session}>
+            <Publicar session={session} />
+          </ProtectedRoute>
+        }
+      />
 
-      {/* Callback de Google — procesa el token y redirige */}
+      {/* El procesador del token de Google */}
       <Route path="/auth/callback" element={<AuthCallback />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
