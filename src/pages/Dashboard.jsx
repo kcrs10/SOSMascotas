@@ -38,7 +38,7 @@ export default function Dashboard({ session }) {
   const cargarMascotas = async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from('mascotas')
+      .from('fotos-mascotas')
       .select('*')
       .order('created_at', { ascending: false })
 
