@@ -4,15 +4,15 @@ import { supabase } from '../supabaseClient'
 import './Dashboard.css'
 
 const ESTADO_LABELS = {
-  perdido: 'Perdido',
-  encontrado: 'Encontrado',
-  reunido: 'Reunido 🎉',
+  perdida: 'Perdida',
+  encontrada: 'Encontrada',
+  resuelta: 'Resuelta 🎉',
 }
 
 const ESTADO_COLORS = {
-  perdido: '#C94B1A',
-  encontrado: '#2D7D46',
-  reunido: '#8B6E54',
+  perdida: '#C94B1A',
+  encontrada: '#2D7D46',
+  resuelta: '#8B6E54',
 }
 
 export default function Dashboard({ session }) {
@@ -34,11 +34,11 @@ export default function Dashboard({ session }) {
   })
   const [preview, setPreview] = useState(null)
 
-  // Cargar mascotas desde Supabase
+  // ── Cargar mascotas ───────────────────────
   const cargarMascotas = async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from('fotos-mascotas')
+      .from('publicaciones_mascotas')   // ✅ nombre correcto de la tabla
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -46,9 +46,7 @@ export default function Dashboard({ session }) {
     setLoading(false)
   }
 
-  useEffect(() => {
-    cargarMascotas()
-  }, [])
+  useEffect(() => { cargarMascotas() }, [])
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut()
@@ -62,6 +60,7 @@ export default function Dashboard({ session }) {
     setPreview(URL.createObjectURL(file))
   }
 
+  // ── Enviar formulario ─────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -70,42 +69,42 @@ export default function Dashboard({ session }) {
     try {
       let imagen_url = null
 
-      // 1. Subir imagen al bucket si hay una
+      // 1. Subir imagen al bucket
       if (form.imagen) {
         const ext = form.imagen.name.split('.').pop()
-        const fileName = `${Date.now()}-${session.user.id}.${ext}`
+        const fileName = `${session.user.id}/${Date.now()}.${ext}`
 
         const { error: uploadError } = await supabase.storage
-          .from('mascotas-fotos')
+          .from('fotos-mascotas')       // ✅ nombre correcto del bucket
           .upload(fileName, form.imagen, { upsert: false })
 
         if (uploadError) throw uploadError
 
         const { data: urlData } = supabase.storage
-          .from('mascotas-fotos')
+          .from('fotos-mascotas')       // ✅ nombre correcto del bucket
           .getPublicUrl(fileName)
 
         imagen_url = urlData.publicUrl
       }
 
-      // 2. Insertar registro en la tabla
+      // 2. Insertar en la tabla correcta
       const { error: insertError } = await supabase
-        .from('mascotas')
+        .from('publicaciones_mascotas') // ✅ nombre correcto de la tabla
         .insert([{
-          nombre: form.nombre,
-          especie: form.especie,
-          raza: form.raza || null,
-          descripcion: form.descripcion,
-          zona: form.zona,
-          contacto: form.contacto,
-          imagen_url,
-          estado: 'perdido',
-          user_id: session.user.id,
+          owner_id:        session.user.id,
+          nombre:          form.nombre || null,
+          especie:         form.especie,
+          fotos:           imagen_url ? [imagen_url] : [],
+          descripcion:     form.descripcion,
+          region:          'Coquimbo',
+          comuna:          form.zona,
+          contacto_alt:    form.contacto || null,
+          fecha_perdida:   new Date().toISOString().split('T')[0],
+          estado:          'perdida',
         }])
 
       if (insertError) throw insertError
 
-      // Limpiar y recargar
       setForm({ nombre: '', especie: 'perro', raza: '', descripcion: '', zona: '', contacto: '', imagen: null })
       setPreview(null)
       setShowForm(false)
@@ -118,9 +117,14 @@ export default function Dashboard({ session }) {
     }
   }
 
-  const marcarEncontrado = async (id, estadoActual) => {
-    const nuevoEstado = estadoActual === 'perdido' ? 'encontrado' : 'reunido'
-    await supabase.from('mascotas').update({ estado: nuevoEstado }).eq('id', id)
+  // ── Cambiar estado ────────────────────────
+  const avanzarEstado = async (id, estadoActual) => {
+    const siguiente = { perdida: 'encontrada', encontrada: 'resuelta' }
+    if (!siguiente[estadoActual]) return
+    await supabase
+      .from('publicaciones_mascotas')   // ✅ nombre correcto de la tabla
+      .update({ estado: siguiente[estadoActual] })
+      .eq('id', id)
     await cargarMascotas()
   }
 
@@ -143,18 +147,12 @@ export default function Dashboard({ session }) {
 
         <div className="db-user">
           {session?.user?.user_metadata?.avatar_url && (
-            <img
-              src={session.user.user_metadata.avatar_url}
-              alt="avatar"
-              className="db-avatar"
-            />
+            <img src={session.user.user_metadata.avatar_url} alt="avatar" className="db-avatar" />
           )}
           <span className="db-username">
             {session?.user?.user_metadata?.full_name?.split(' ')[0] || 'Usuario'}
           </span>
-          <button className="db-logout" onClick={cerrarSesion}>
-            Salir
-          </button>
+          <button className="db-logout" onClick={cerrarSesion}>Salir</button>
         </div>
       </header>
 
@@ -170,7 +168,6 @@ export default function Dashboard({ session }) {
           </button>
         </div>
 
-        {/* Lista de mascotas */}
         {loading ? (
           <div className="db-empty">Cargando reportes...</div>
         ) : mascotas.length === 0 ? (
@@ -184,31 +181,25 @@ export default function Dashboard({ session }) {
             {mascotas.map(m => (
               <div key={m.id} className="db-card">
                 <div className="db-card-img">
-                  {m.imagen_url
-                    ? <img src={m.imagen_url} alt={m.nombre} />
+                  {m.fotos?.length > 0
+                    ? <img src={m.fotos[0]} alt={m.nombre || m.especie} />
                     : <div className="db-card-no-img">🐾</div>
                   }
-                  <span
-                    className="db-card-badge"
-                    style={{ background: ESTADO_COLORS[m.estado] }}
-                  >
+                  <span className="db-card-badge" style={{ background: ESTADO_COLORS[m.estado] }}>
                     {ESTADO_LABELS[m.estado]}
                   </span>
                 </div>
                 <div className="db-card-body">
-                  <h3 className="db-card-name">{m.nombre}</h3>
-                  <p className="db-card-meta">
-                    {m.especie}{m.raza ? ` · ${m.raza}` : ''} · {m.zona}
-                  </p>
+                  <h3 className="db-card-name">{m.nombre || `${m.especie} sin nombre`}</h3>
+                  <p className="db-card-meta">{m.especie} · {m.comuna}</p>
                   <p className="db-card-desc">{m.descripcion}</p>
                   <div className="db-card-footer">
-                    <span className="db-card-contacto">📞 {m.contacto}</span>
-                    {m.estado !== 'reunido' && m.user_id === session?.user?.id && (
-                      <button
-                        className="db-card-btn"
-                        onClick={() => marcarEncontrado(m.id, m.estado)}
-                      >
-                        {m.estado === 'perdido' ? '¡Lo encontré!' : 'Marcar reunido'}
+                    {m.contacto_alt && (
+                      <span className="db-card-contacto">📞 {m.contacto_alt}</span>
+                    )}
+                    {m.estado !== 'resuelta' && m.owner_id === session?.user?.id && (
+                      <button className="db-card-btn" onClick={() => avanzarEstado(m.id, m.estado)}>
+                        {m.estado === 'perdida' ? '¡Lo encontré!' : 'Marcar reunido'}
                       </button>
                     )}
                   </div>
@@ -219,9 +210,9 @@ export default function Dashboard({ session }) {
         )}
       </main>
 
-      {/* Modal: nuevo reporte */}
+      {/* Modal */}
       {showForm && (
-        <div className="db-overlay" onClick={(e) => e.target === e.currentTarget && setShowForm(false)}>
+        <div className="db-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="db-modal">
             <div className="db-modal-header">
               <h2>Reportar mascota perdida</h2>
@@ -229,7 +220,6 @@ export default function Dashboard({ session }) {
             </div>
 
             <form className="db-form" onSubmit={handleSubmit}>
-              {/* Foto */}
               <div className="db-field">
                 <label>Foto de la mascota</label>
                 <div className="db-upload-area" onClick={() => document.getElementById('img-input').click()}>
@@ -243,94 +233,46 @@ export default function Dashboard({ session }) {
                     )
                   }
                 </div>
-                <input
-                  id="img-input"
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={handleImageChange}
-                />
+                <input id="img-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
               </div>
 
-              {/* Nombre */}
               <div className="db-field">
-                <label>Nombre <span className="req">*</span></label>
-                <input
-                  type="text"
-                  placeholder="Ej: Firulais"
-                  value={form.nombre}
-                  onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                  required
-                />
+                <label>Nombre <span className="optional">(opcional)</span></label>
+                <input type="text" placeholder="Ej: Firulais" value={form.nombre}
+                  onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))} />
               </div>
 
-              {/* Especie */}
               <div className="db-field">
                 <label>Especie <span className="req">*</span></label>
-                <select
-                  value={form.especie}
-                  onChange={e => setForm(f => ({ ...f, especie: e.target.value }))}
-                >
+                <select value={form.especie} onChange={e => setForm(f => ({ ...f, especie: e.target.value }))}>
                   <option value="perro">Perro</option>
                   <option value="gato">Gato</option>
                   <option value="otro">Otro</option>
                 </select>
               </div>
 
-              {/* Raza */}
-              <div className="db-field">
-                <label>Raza <span className="optional">(opcional)</span></label>
-                <input
-                  type="text"
-                  placeholder="Ej: Labrador"
-                  value={form.raza}
-                  onChange={e => setForm(f => ({ ...f, raza: e.target.value }))}
-                />
-              </div>
-
-              {/* Descripción */}
               <div className="db-field">
                 <label>Descripción <span className="req">*</span></label>
-                <textarea
-                  placeholder="Color, tamaño, señas particulares, dónde fue visto por última vez..."
-                  value={form.descripcion}
-                  onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
-                  required
-                  rows={3}
-                />
+                <textarea placeholder="Color, tamaño, señas particulares, dónde fue visto por última vez..."
+                  value={form.descripcion} onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))}
+                  required rows={3} />
               </div>
 
-              {/* Zona */}
               <div className="db-field">
                 <label>Zona / Sector <span className="req">*</span></label>
-                <input
-                  type="text"
-                  placeholder="Ej: Centro Vicuña, Población Los Pinos"
-                  value={form.zona}
-                  onChange={e => setForm(f => ({ ...f, zona: e.target.value }))}
-                  required
-                />
+                <input type="text" placeholder="Ej: Centro Vicuña, Población Los Pinos"
+                  value={form.zona} onChange={e => setForm(f => ({ ...f, zona: e.target.value }))} required />
               </div>
 
-              {/* Contacto */}
               <div className="db-field">
-                <label>Teléfono de contacto <span className="req">*</span></label>
-                <input
-                  type="tel"
-                  placeholder="Ej: +56 9 1234 5678"
-                  value={form.contacto}
-                  onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))}
-                  required
-                />
+                <label>Teléfono de contacto <span className="optional">(opcional)</span></label>
+                <input type="tel" placeholder="+56 9 1234 5678"
+                  value={form.contacto} onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))} />
               </div>
 
               {error && <p className="db-error">{error}</p>}
 
-              <button
-                type="submit"
-                className="db-submit"
-                disabled={submitting}
-              >
+              <button type="submit" className="db-submit" disabled={submitting}>
                 {submitting ? 'Publicando...' : 'Publicar reporte'}
               </button>
             </form>
