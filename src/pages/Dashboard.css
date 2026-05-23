@@ -353,3 +353,147 @@
   .db-overlay { align-items: center; }
   .db-modal { max-width: 520px; border-radius: 12px; max-height: 88vh; }
 }
+
+/* ── Top actions (mapa + reportar) ── */
+.db-top-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.db-btn-mapa {
+  display: flex; align-items: center; gap: 6px;
+  background: #EDE4D8; color: #6B4F38;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px; font-weight: 500;
+  padding: 10px 16px; border: 1px solid #D4C4B0;
+  border-radius: 6px; cursor: pointer;
+  transition: all 0.15s; white-space: nowrap;
+}
+.db-btn-mapa:hover { background: #D4C4B0; }
+.db-btn-mapa.active {
+  background: #1A1009; color: #FDF8F2;
+  border-color: #1A1009;
+}
+
+/* ── Mapa ── */
+.db-mapa-wrap {
+  margin-bottom: 1.5rem;
+  border: 1px solid #E8DDD0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.db-mapa-header {
+  padding: 1rem 1.25rem;
+  display: flex; align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #E8DDD0;
+}
+
+.db-mapa-title {
+  font-family: 'Fraunces', serif;
+  font-size: 1rem; font-weight: 700;
+  color: #1A1009;
+}
+
+.db-mapa-badge {
+  font-size: 11px; font-weight: 600;
+  background: #FDE8E0; color: #C94B1A;
+  padding: 4px 10px; border-radius: 20px;
+}
+
+.db-mapa-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.db-mapa-iframe {
+  width: 100%;
+  height: 260px;
+  border: none;
+  display: block;
+}
+
+.db-mapa-leyenda {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid #E8DDD0;
+  background: #FDF8F2;
+}
+
+.db-mapa-leyenda-title {
+  font-size: 11px; font-weight: 600;
+  color: #8B6E54; letter-spacing: 0.08em;
+  text-transform: uppercase; margin-bottom: 0.75rem;
+}
+
+.db-mapa-zona {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 0;
+}
+
+.db-mapa-zona-dot {
+  width: 8px; height: 8px; flex-shrink: 0;
+  background: #C94B1A; border-radius: 50%;
+}
+
+.db-mapa-zona-nombre {
+  font-size: 13px; color: #4A3728; flex: 1;
+}
+
+.db-mapa-zona-count {
+  font-size: 12px; font-weight: 600;
+  color: #C94B1A;
+  background: #FDE8E0;
+  padding: 2px 8px; border-radius: 10px;
+}
+
+/* ── Avatar del reportante ── */
+.db-card-reportante {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 0.6rem;
+}
+
+.db-card-reportante-avatar {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%; overflow: hidden;
+  background: #EDE4D8;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: #8B6E54;
+  border: 1.5px solid #D4C4B0;
+}
+
+.db-card-reportante-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+
+.db-card-reportante-nombre {
+  font-size: 11px; color: #A89077;
+}
+
+/* ── Acciones de la card ── */
+.db-card-actions {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+
+.db-card-share {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; font-weight: 500;
+  color: #6B4F38; background: #EDE4D8;
+  border: 1px solid #D4C4B0; border-radius: 6px;
+  padding: 6px 10px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.15s;
+}
+.db-card-share:hover { background: #D4C4B0; }
+
+/* ── Desktop ajustes ── */
+@media (min-width: 768px) {
+  .db-mapa-container { flex-direction: row; }
+  .db-mapa-iframe { height: 300px; flex: 1; }
+  .db-mapa-leyenda {
+    width: 200px; flex-shrink: 0;
+    border-top: none; border-left: 1px solid #E8DDD0;
+  }
+}
