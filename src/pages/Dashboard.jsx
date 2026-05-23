@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import './Dashboard.css'
@@ -15,6 +15,20 @@ const ESTADO_COLORS = {
   resuelta: '#8B6E54',
 }
 
+function formatFecha(fechaStr) {
+  if (!fechaStr) return ''
+  const fecha = new Date(fechaStr + 'T12:00:00')
+  const hoy = new Date()
+  const diffMs = hoy - fecha
+  const diffDias = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDias === 0) return 'Hoy'
+  if (diffDias === 1) return 'Ayer'
+  if (diffDias < 7) return `Hace ${diffDias} días`
+  if (diffDias < 30) return `Hace ${Math.floor(diffDias / 7)} semana${Math.floor(diffDias / 7) > 1 ? 's' : ''}`
+  return fecha.toLocaleDateString('es-CL', { day: 'numeric', month: 'long' })
+}
+
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
   const [mascotas, setMascotas] = useState([])
@@ -23,10 +37,13 @@ export default function Dashboard({ session }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
 
+  // Filtros y búsqueda — por defecto solo muestra perdidas
+  const [filtroEstado, setFiltroEstado] = useState('perdida')
+  const [busqueda, setBusqueda] = useState('')
+
   const [form, setForm] = useState({
     nombre: '',
     especie: 'perro',
-    raza: '',
     descripcion: '',
     zona: '',
     contacto: '',
@@ -38,7 +55,7 @@ export default function Dashboard({ session }) {
   const cargarMascotas = async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from('publicaciones_mascotas')   // ✅ nombre correcto de la tabla
+      .from('publicaciones_mascotas')
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -47,6 +64,37 @@ export default function Dashboard({ session }) {
   }
 
   useEffect(() => { cargarMascotas() }, [])
+
+  // ── Filtrar y buscar (en memoria, sin llamadas extra) ──
+  const lista = useMemo(() => {
+    let result = mascotas
+
+    // Filtro por estado
+    if (filtroEstado !== 'todas') {
+      result = result.filter(m => m.estado === filtroEstado)
+    }
+
+    // Búsqueda por nombre, zona/comuna o descripción
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase().trim()
+      result = result.filter(m =>
+        m.nombre?.toLowerCase().includes(q) ||
+        m.comuna?.toLowerCase().includes(q) ||
+        m.descripcion?.toLowerCase().includes(q) ||
+        m.especie?.toLowerCase().includes(q)
+      )
+    }
+
+    return result
+  }, [mascotas, filtroEstado, busqueda])
+
+  // Contadores para los filtros
+  const contadores = useMemo(() => ({
+    todas: mascotas.length,
+    perdida: mascotas.filter(m => m.estado === 'perdida').length,
+    encontrada: mascotas.filter(m => m.estado === 'encontrada').length,
+    resuelta: mascotas.filter(m => m.estado === 'resuelta').length,
+  }), [mascotas])
 
   const cerrarSesion = async () => {
     await supabase.auth.signOut()
@@ -69,43 +117,41 @@ export default function Dashboard({ session }) {
     try {
       let imagen_url = null
 
-      // 1. Subir imagen al bucket
       if (form.imagen) {
         const ext = form.imagen.name.split('.').pop()
         const fileName = `${session.user.id}/${Date.now()}.${ext}`
 
         const { error: uploadError } = await supabase.storage
-          .from('fotos-mascotas')       // ✅ nombre correcto del bucket
+          .from('fotos-mascotas')
           .upload(fileName, form.imagen, { upsert: false })
 
         if (uploadError) throw uploadError
 
         const { data: urlData } = supabase.storage
-          .from('fotos-mascotas')       // ✅ nombre correcto del bucket
+          .from('fotos-mascotas')
           .getPublicUrl(fileName)
 
         imagen_url = urlData.publicUrl
       }
 
-      // 2. Insertar en la tabla correcta
       const { error: insertError } = await supabase
-        .from('publicaciones_mascotas') // ✅ nombre correcto de la tabla
+        .from('publicaciones_mascotas')
         .insert([{
-          owner_id:        session.user.id,
-          nombre:          form.nombre || null,
-          especie:         form.especie,
-          fotos:           imagen_url ? [imagen_url] : [],
-          descripcion:     form.descripcion,
-          region:          'Coquimbo',
-          comuna:          form.zona,
-          contacto_alt:    form.contacto || null,
-          fecha_perdida:   new Date().toISOString().split('T')[0],
-          estado:          'perdida',
+          owner_id:      session.user.id,
+          nombre:        form.nombre || null,
+          especie:       form.especie,
+          fotos:         imagen_url ? [imagen_url] : [],
+          descripcion:   form.descripcion,
+          region:        'Coquimbo',
+          comuna:        form.zona,
+          contacto_alt:  form.contacto || null,
+          fecha_perdida: new Date().toISOString().split('T')[0],
+          estado:        'perdida',
         }])
 
       if (insertError) throw insertError
 
-      setForm({ nombre: '', especie: 'perro', raza: '', descripcion: '', zona: '', contacto: '', imagen: null })
+      setForm({ nombre: '', especie: 'perro', descripcion: '', zona: '', contacto: '', imagen: null })
       setPreview(null)
       setShowForm(false)
       await cargarMascotas()
@@ -122,7 +168,7 @@ export default function Dashboard({ session }) {
     const siguiente = { perdida: 'encontrada', encontrada: 'resuelta' }
     if (!siguiente[estadoActual]) return
     await supabase
-      .from('publicaciones_mascotas')   // ✅ nombre correcto de la tabla
+      .from('publicaciones_mascotas')
       .update({ estado: siguiente[estadoActual] })
       .eq('id', id)
     await cargarMascotas()
@@ -130,11 +176,12 @@ export default function Dashboard({ session }) {
 
   return (
     <div className="db">
-      {/* Header */}
+
+      {/* ── Header ── */}
       <header className="db-header">
         <div className="db-logo">
           <div className="db-paw">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
               <ellipse cx="7" cy="7" rx="2.2" ry="3" fill="#FDF8F2" />
               <ellipse cx="17" cy="7" rx="2.2" ry="3" fill="#FDF8F2" />
               <ellipse cx="4.5" cy="12" rx="1.8" ry="2.5" fill="#FDF8F2" />
@@ -144,7 +191,6 @@ export default function Dashboard({ session }) {
           </div>
           <span className="db-brand">SOS<span> Mascotas</span></span>
         </div>
-
         <div className="db-user">
           {session?.user?.user_metadata?.avatar_url && (
             <img src={session.user.user_metadata.avatar_url} alt="avatar" className="db-avatar" />
@@ -156,8 +202,10 @@ export default function Dashboard({ session }) {
         </div>
       </header>
 
-      {/* Main */}
+      {/* ── Main ── */}
       <main className="db-main">
+
+        {/* Top bar */}
         <div className="db-top-bar">
           <div>
             <h1 className="db-title">Mascotas perdidas</h1>
@@ -168,17 +216,66 @@ export default function Dashboard({ session }) {
           </button>
         </div>
 
+        {/* Buscador */}
+        <div className="db-search-wrap">
+          <span className="db-search-icon">🔍</span>
+          <input
+            className="db-search"
+            type="text"
+            placeholder="Buscar por nombre, zona o descripción..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+          />
+          {busqueda && (
+            <button className="db-search-clear" onClick={() => setBusqueda('')}>✕</button>
+          )}
+        </div>
+
+        {/* Filtros de estado */}
+        <div className="db-filtros">
+          {[
+            { key: 'perdida',    label: 'Perdidas' },
+            { key: 'encontrada', label: 'Encontradas' },
+            { key: 'resuelta',   label: 'Resueltas' },
+            { key: 'todas',      label: 'Todas' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              className={`db-filtro${filtroEstado === key ? ' active' : ''}${key === 'perdida' ? ' urgente' : ''}`}
+              onClick={() => setFiltroEstado(key)}
+            >
+              {label}
+              <span className="db-filtro-count">{contadores[key]}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Resultado de búsqueda */}
+        {busqueda && !loading && (
+          <p className="db-search-result">
+            {lista.length === 0
+              ? 'Sin resultados para esa búsqueda'
+              : `${lista.length} resultado${lista.length !== 1 ? 's' : ''} para "${busqueda}"`
+            }
+          </p>
+        )}
+
+        {/* Lista */}
         {loading ? (
           <div className="db-empty">Cargando reportes...</div>
-        ) : mascotas.length === 0 ? (
+        ) : lista.length === 0 ? (
           <div className="db-empty">
             <span className="db-empty-icon">🐾</span>
-            <p>No hay mascotas reportadas aún.</p>
-            <p>¡Sé el primero en ayudar a la comunidad!</p>
+            {busqueda
+              ? <p>No hay resultados para "{busqueda}".</p>
+              : filtroEstado === 'perdida'
+                ? <><p>No hay mascotas perdidas reportadas.</p><p>¡Buenas noticias para el valle!</p></>
+                : <><p>No hay reportes en esta categoría.</p></>
+            }
           </div>
         ) : (
           <div className="db-grid">
-            {mascotas.map(m => (
+            {lista.map(m => (
               <div key={m.id} className="db-card">
                 <div className="db-card-img">
                   {m.fotos?.length > 0
@@ -188,15 +285,35 @@ export default function Dashboard({ session }) {
                   <span className="db-card-badge" style={{ background: ESTADO_COLORS[m.estado] }}>
                     {ESTADO_LABELS[m.estado]}
                   </span>
+                  {/* Fecha en la foto */}
+                  <span className="db-card-fecha-img">
+                    {formatFecha(m.fecha_perdida)}
+                  </span>
                 </div>
+
                 <div className="db-card-body">
-                  <h3 className="db-card-name">{m.nombre || `${m.especie} sin nombre`}</h3>
-                  <p className="db-card-meta">{m.especie} · {m.comuna}</p>
+                  <h3 className="db-card-name">
+                    {m.nombre
+                      ? m.nombre.charAt(0).toUpperCase() + m.nombre.slice(1).toLowerCase()
+                      : `${m.especie.charAt(0).toUpperCase() + m.especie.slice(1)} sin nombre`
+                    }
+                  </h3>
+                  <p className="db-card-meta">
+                    {m.especie.charAt(0).toUpperCase() + m.especie.slice(1)} · {m.comuna}
+                  </p>
                   <p className="db-card-desc">{m.descripcion}</p>
+
                   <div className="db-card-footer">
-                    {m.contacto_alt && (
-                      <span className="db-card-contacto">📞 {m.contacto_alt}</span>
-                    )}
+                    {m.contacto_alt ? (
+                      <a
+                        href={`https://wa.me/${m.contacto_alt.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="db-card-whatsapp"
+                      >
+                        <span>💬</span> WhatsApp
+                      </a>
+                    ) : null}
                     {m.estado !== 'resuelta' && m.owner_id === session?.user?.id && (
                       <button className="db-card-btn" onClick={() => avanzarEstado(m.id, m.estado)}>
                         {m.estado === 'perdida' ? '¡Lo encontré!' : 'Marcar reunido'}
@@ -210,7 +327,7 @@ export default function Dashboard({ session }) {
         )}
       </main>
 
-      {/* Modal */}
+      {/* ── Modal ── */}
       {showForm && (
         <div className="db-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="db-modal">
@@ -225,12 +342,7 @@ export default function Dashboard({ session }) {
                 <div className="db-upload-area" onClick={() => document.getElementById('img-input').click()}>
                   {preview
                     ? <img src={preview} alt="preview" className="db-upload-preview" />
-                    : (
-                      <div className="db-upload-placeholder">
-                        <span>📸</span>
-                        <span>Toca para subir foto</span>
-                      </div>
-                    )
+                    : <div className="db-upload-placeholder"><span>📸</span><span>Toca para subir foto</span></div>
                   }
                 </div>
                 <input id="img-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handleImageChange} />
@@ -265,7 +377,7 @@ export default function Dashboard({ session }) {
               </div>
 
               <div className="db-field">
-                <label>Teléfono de contacto <span className="optional">(opcional)</span></label>
+                <label>WhatsApp de contacto <span className="optional">(opcional)</span></label>
                 <input type="tel" placeholder="+56 9 1234 5678"
                   value={form.contacto} onChange={e => setForm(f => ({ ...f, contacto: e.target.value }))} />
               </div>
