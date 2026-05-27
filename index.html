@@ -1,13 +1,45 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>sosmascotas</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1A1009" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SOS Mascotas" />
+
+    <!-- SEO / Open Graph -->
+    <meta name="description" content="Red vecinal para encontrar mascotas perdidas en Vicuña y el Valle del Elqui." />
+    <meta property="og:title" content="SOS Mascotas Vicuña" />
+    <meta property="og:description" content="La comunidad que nunca deja de buscar." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://sosmascotas.kcrs.cl" />
+
+    <!-- Fuentes -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,700;1,300&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+
+    <title>SOS Mascotas Vicuña</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Registrar Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registrado:', reg.scope))
+            .catch(err => console.log('SW error:', err))
+        })
+      }
+    </script>
   </body>
 </html>
