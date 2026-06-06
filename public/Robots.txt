@@ -5,3 +5,5 @@ Disallow: /auth/
 Disallow: /reporte/
 
 Sitemap: https://sosmascotas.kcrs.cl/sitemap.xml
+
+# BEGIN Cloudflare Managed content
