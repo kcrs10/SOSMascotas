@@ -19,27 +19,22 @@
     <meta property="og:description" content="La comunidad que nunca deja de buscar." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://sosmascotas.kcrs.cl" />
+    <meta property="og:image" content="https://sosmascotas.kcrs.cl/favicon.svg" />
 
     <!-- Fuentes -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,700;1,300&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,700;1,300&family=DM+Sans:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
 
     <title>SOS Mascotas Vicuña</title>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-
-    <!-- Registrar Service Worker -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => console.log('SW registrado:', reg.scope))
-            .catch(err => console.log('SW error:', err))
-        })
-      }
-    </script>
+    <!-- SW registration movida a archivo externo para evitar unsafe-inline -->
+    <script src="/register-sw.js" defer></script>
   </body>
 </html>
