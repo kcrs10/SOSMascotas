@@ -1,0 +1,6 @@
+# Fuerza HTTPS — soluciona "HTTPS Available via HTTP" de ZAP
+http://sosmascotas.kcrs.cl/*  https://sosmascotas.kcrs.cl/:splat  301!
+http://www.sosmascotas.kcrs.cl/*  https://sosmascotas.kcrs.cl/:splat  301!
+
+# SPA fallback — React Router maneja todas las rutas
+/*    /index.html   200

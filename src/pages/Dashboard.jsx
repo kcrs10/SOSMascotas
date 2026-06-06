@@ -15,7 +15,6 @@ const ESTADO_COLORS = {
   resuelta: '#8B6E54',
 }
 
-// Coordenadas aproximadas de comunas del Valle del Elqui
 const COORDS_COMUNAS = {
   'Vicuña':        { lat: -30.0319, lng: -70.7097 },
   'La Serena':     { lat: -29.9027, lng: -71.2520 },
@@ -43,7 +42,7 @@ function capitalizarNombre(str) {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
-// Compartir reporte por WhatsApp
+// ── CAMBIO: URL corregida a dominio real ──────────────────────
 function compartirWhatsApp(mascota) {
   const nombre = mascota.nombre ? capitalizarNombre(mascota.nombre) : capitalizarNombre(mascota.especie)
   const texto = [
@@ -54,30 +53,17 @@ function compartirWhatsApp(mascota) {
     `📅 Perdido el: ${formatFecha(mascota.fecha_perdida)}`,
     mascota.contacto_alt ? `📞 Contacto: ${mascota.contacto_alt}` : '',
     ``,
-    `🔗 Ver más reportes: https://sosmascotas.pages.dev`,
+    `🔗 Ver más reportes: https://sosmascotas.kcrs.cl`, // <-- CAMBIO: era sosmascotas.pages.dev
   ].filter(Boolean).join('\n')
 
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank')
 }
 
-// Componente de mapa con iframe de OpenStreetMap
 function MapaReportes({ mascotas }) {
   const perdidas = mascotas.filter(m => m.estado === 'perdida')
 
-  // Construir URL de OpenStreetMap con marcadores
-  const markers = perdidas
-    .map(m => {
-      const coords = COORDS_COMUNAS[m.comuna]
-      if (!coords) return null
-      const nombre = m.nombre ? capitalizarNombre(m.nombre) : capitalizarNombre(m.especie)
-      return `${coords.lat},${coords.lng},${encodeURIComponent(nombre)}`
-    })
-    .filter(Boolean)
-
-  // Centro del mapa en Vicuña
   const lat = -30.0319
   const lng = -70.7097
-  const zoom = 10
 
   const mapaUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.8}%2C${lat - 0.5}%2C${lng + 0.8}%2C${lat + 0.5}&layer=mapnik&marker=${lat}%2C${lng}`
 
@@ -95,7 +81,6 @@ function MapaReportes({ mascotas }) {
           className="db-mapa-iframe"
           allowFullScreen
         />
-        {/* Leyenda con las mascotas perdidas por zona */}
         {perdidas.length > 0 && (
           <div className="db-mapa-leyenda">
             <p className="db-mapa-leyenda-title">Zonas activas</p>
@@ -234,7 +219,6 @@ export default function Dashboard({ session }) {
   return (
     <div className="db">
 
-      {/* ── Header ── */}
       <header className="db-header">
         <div className="db-logo">
           <div className="db-paw">
@@ -259,7 +243,6 @@ export default function Dashboard({ session }) {
         </div>
       </header>
 
-      {/* ── Main ── */}
       <main className="db-main">
 
         <div className="db-top-bar">
@@ -280,10 +263,8 @@ export default function Dashboard({ session }) {
           </div>
         </div>
 
-        {/* Mapa */}
         {showMapa && <MapaReportes mascotas={mascotas} />}
 
-        {/* Buscador */}
         <div className="db-search-wrap">
           <span className="db-search-icon">🔍</span>
           <input
@@ -298,7 +279,6 @@ export default function Dashboard({ session }) {
           )}
         </div>
 
-        {/* Filtros */}
         <div className="db-filtros">
           {[
             { key: 'perdida',    label: 'Perdidas' },
@@ -326,7 +306,6 @@ export default function Dashboard({ session }) {
           </p>
         )}
 
-        {/* Lista */}
         {loading ? (
           <div className="db-empty">Cargando reportes...</div>
         ) : lista.length === 0 ? (
@@ -355,7 +334,6 @@ export default function Dashboard({ session }) {
                 </div>
 
                 <div className="db-card-body">
-                  {/* Avatar + nombre del reportante */}
                   <div className="db-card-reportante">
                     <div className="db-card-reportante-avatar">
                       {m.owner_avatar
@@ -412,7 +390,6 @@ export default function Dashboard({ session }) {
         )}
       </main>
 
-      {/* ── Modal ── */}
       {showForm && (
         <div className="db-overlay" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="db-modal">
