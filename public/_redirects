@@ -1,6 +1,11 @@
-# Fuerza HTTPS — soluciona "HTTPS Available via HTTP" de ZAP
+# Archivos estáticos — NO redirigir, servir directamente
+/robots.txt     /robots.txt     200
+/manifest.json  /manifest.json  200
+/sw.js          /sw.js          200
+/favicon.svg    /favicon.svg    200
+
+# Fuerza HTTPS
 http://sosmascotas.kcrs.cl/*  https://sosmascotas.kcrs.cl/:splat  301!
-http://www.sosmascotas.kcrs.cl/*  https://sosmascotas.kcrs.cl/:splat  301!
 
 # SPA fallback — React Router maneja todas las rutas
 /*    /index.html   200
