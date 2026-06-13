@@ -16,13 +16,45 @@ const ESTADO_COLORS = {
 }
 
 const COORDS_COMUNAS = {
-  'Vicuña':        { lat: -30.0319, lng: -70.7097 },
-  'La Serena':     { lat: -29.9027, lng: -71.2520 },
-  'Coquimbo':      { lat: -29.9533, lng: -71.3436 },
-  'Paihuano':      { lat: -30.0000, lng: -70.5000 },
-  'Andacollo':     { lat: -30.2333, lng: -71.0833 },
-  'Monte Patria':  { lat: -30.6833, lng: -70.9667 },
-  'Ovalle':        { lat: -30.6000, lng: -71.2000 },
+  // Región de Coquimbo
+  'Vicuña':              { lat: -30.0319, lng: -70.7097 },
+  'Centro Vicuña':       { lat: -30.0325, lng: -70.7102 },
+  'Los Andenes':         { lat: -30.0280, lng: -70.7050 },
+  'Rivadavia':           { lat: -30.0150, lng: -70.6950 },
+  'Villaseca':           { lat: -30.0500, lng: -70.6800 },
+  'Diaguitas':           { lat: -29.9950, lng: -70.7250 },
+  'Gualliguaica':        { lat: -29.9800, lng: -70.7400 },
+  'Pisco Elqui':         { lat: -30.1167, lng: -70.4833 },
+  'Montegrande':         { lat: -30.0833, lng: -70.5167 },
+  'Paihuano':            { lat: -30.0000, lng: -70.5000 },
+  'La Serena':           { lat: -29.9027, lng: -71.2520 },
+  'Coquimbo':            { lat: -29.9533, lng: -71.3436 },
+  'Andacollo':           { lat: -30.2333, lng: -71.0833 },
+  'Monte Patria':        { lat: -30.6833, lng: -70.9667 },
+  'Ovalle':              { lat: -30.6000, lng: -71.2000 },
+  'Illapel':             { lat: -31.6333, lng: -71.1667 },
+  'Salamanca':           { lat: -31.7833, lng: -70.9667 },
+  // Región de Valparaíso (Quinta Región)
+  'Valparaíso':          { lat: -33.0472, lng: -71.6127 },
+  'Viña del Mar':        { lat: -33.0245, lng: -71.5518 },
+  'Quilpué':             { lat: -33.0500, lng: -71.4333 },
+  'Villa Alemana':       { lat: -33.0431, lng: -71.3736 },
+  'Concón':              { lat: -32.9233, lng: -71.5294 },
+  'San Antonio':         { lat: -33.5928, lng: -71.6011 },
+  'Quillota':            { lat: -32.8833, lng: -71.2500 },
+  'La Calera':           { lat: -32.7833, lng: -71.2000 },
+  'Los Andes':           { lat: -32.8333, lng: -70.5997 },
+  'San Felipe':          { lat: -32.7500, lng: -70.7167 },
+  'Limache':             { lat: -33.0167, lng: -71.2667 },
+  'Olmué':               { lat: -33.0000, lng: -71.2000 },
+  'Casablanca':          { lat: -33.3167, lng: -71.4167 },
+  'Cartagena':           { lat: -33.5333, lng: -71.6167 },
+  'El Quisco':           { lat: -33.3833, lng: -71.7000 },
+  'Algarrobo':           { lat: -33.3500, lng: -71.6667 },
+  'Petorca':             { lat: -32.2500, lng: -70.9167 },
+  'La Ligua':            { lat: -32.4500, lng: -71.2333 },
+  'Papudo':              { lat: -32.5167, lng: -71.4500 },
+  'Zapallar':            { lat: -32.5500, lng: -71.4667 },
 }
 
 function formatFecha(fechaStr) {
@@ -62,10 +94,12 @@ function compartirWhatsApp(mascota) {
 function MapaReportes({ mascotas }) {
   const perdidas = mascotas.filter(m => m.estado === 'perdida')
 
-  const lat = -30.0319
-  const lng = -70.7097
+  // Centro aproximado entre Coquimbo y Valparaíso
+  const lat = -31.5000
+  const lng = -71.0000
 
-  const mapaUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.8}%2C${lat - 0.5}%2C${lng + 0.8}%2C${lat + 0.5}&layer=mapnik&marker=${lat}%2C${lng}`
+  // bbox ampliado para cubrir ambas regiones
+  const mapaUrl = `https://www.openstreetmap.org/export/embed.html?bbox=-72.5%2C-34.2%2C-69.5%2C-29.5&layer=mapnik`
 
   return (
     <div className="db-mapa-wrap">
@@ -76,7 +110,7 @@ function MapaReportes({ mascotas }) {
 
       <div className="db-mapa-container">
         <iframe
-          title="Mapa Vicuña"
+          title="Mapa Chile Central"
           src={mapaUrl}
           className="db-mapa-iframe"
           allowFullScreen
@@ -119,7 +153,6 @@ export default function Dashboard({ session }) {
     descripcion: '', zona: '', contacto: '', imagen: null,
   })
   const [preview, setPreview] = useState(null)
-
   const cargarMascotas = async () => {
     setLoading(true)
     const { data, error } = await supabase
@@ -248,7 +281,7 @@ export default function Dashboard({ session }) {
         <div className="db-top-bar">
           <div>
             <h1 className="db-title">Mascotas perdidas</h1>
-            <p className="db-subtitle">Valle del Elqui · Vicuña y alrededores</p>
+            <p className="db-subtitle">Coquimbo · Valparaíso · Chile</p>
           </div>
           <div className="db-top-actions">
             <button
@@ -434,7 +467,7 @@ export default function Dashboard({ session }) {
 
               <div className="db-field">
                 <label>Zona / Sector <span className="req">*</span></label>
-                <input type="text" placeholder="Ej: Centro Vicuña, Población Los Pinos"
+                <input type="text" placeholder="Ej: Vicuña, Viña del Mar, Valparaíso..."
                   value={form.zona} onChange={e => setForm(f => ({ ...f, zona: e.target.value }))} required />
               </div>
 
